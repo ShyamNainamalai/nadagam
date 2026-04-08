@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Soundboard Display Output</title>
+    <style>
+        /* Forces the media to fill the entire screen */
+        body {
+            margin: 0;
+            overflow: hidden; 
+            background-color: #000; /* Black background by default */
+        }
+        
+        /* Styles applied to all media elements (Video and Image) */
+        #current-video, #static-image {
+            position: absolute; 
+            top: 0;
+            left: 0;
+            width: 100vw; 
+            height: 100vh; 
+            object-fit: contain; /* Scales media to fit screen without cropping */
+            z-index: 1;
+        }
+        
+        /* The video element is hidden by default */
+        #current-video {
+             display: none; 
+             z-index: 2; /* Video layers above the static image when active */
+        }
+    </style>
+</head>
+<body>
+
+    <video id="current-video" autoplay muted style="display: none;"></video>
+    
+    <img id="static-image" src="assets/images/logo.jpg" alt="Event Graphic">
+
+    <audio id="audio-player" style="display: none;"></audio>
+
+    <script>
+        // --- THE RECEIVER CODE ---
+        window.addEventListener('message', function(event) {
+            
+            const data = event.data;
+            const audioPlayer = document.getElementById('audio-player');
+            const videoElement = document.getElementById('current-video');
+            const staticImageElement = document.getElementById('static-image');
+            
+            console.log("Message received from Control Panel:", data);
+            
+            // Function to stop all media
+            function stopAllMedia() {
+                audioPlayer.pause();
+                audioPlayer.currentTime = 0;
+                videoElement.pause();
+                videoElement.currentTime = 0;
+            }
+
+            // 1. Handle STOP or BLACK SCREEN command
+            if (data.stop) {
+                stopAllMedia();
+                return;
+            } else if (data.blackout) {
+                stopAllMedia();
+                // Use a tiny transparent GIF to force black background
+                staticImageElement.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==';
+                videoElement.style.display = 'none';
+                return;
+            }
+
+            // 2. Handle the main cue request (Audio and Image/Video update)
+            if (data.audio || data.image) {
+                stopAllMedia(); // Always stop everything before starting a new cue
+                
+                const isVideo = data.image && data.image.toLowerCase().endsWith('.mp4');
+
+                // --- VIDEO HANDLING (For Cue 50) ---
+                if (isVideo) {
+                    
+                    videoElement.src = data.image;
+                    videoElement.style.display = 'block'; 
+                    staticImageElement.style.display = 'none'; // Hide static image
+                    videoElement.muted = false; // Video uses its own audio
+                    
+                    videoElement.play().catch(error => {
+                        console.error("Video playback error:", error);
+                    });
+
+                // --- STATIC IMAGE / MP3 HANDLING (For all other cues) ---
+                } else if (data.image) {
+                    
+                    // Ensure video is hidden
+                    videoElement.style.display = 'none'; 
+                    
+                    // Show the new static image (including PPT slides)
+                    staticImageElement.src = data.image;
+                    staticImageElement.style.display = 'block';
+
+                    // Play separate audio (if defined, like in BGM section)
+                    if (data.audio) {
+                        audioPlayer.src = data.audio;
+                        audioPlayer.play().catch(error => {
+                            console.error("Audio playback error:", error);
+                        });
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
